@@ -14,11 +14,12 @@
 	4) Путь, параметры и тело запроса
 	5) Автоматические документы FastAPI
 	6) Создание простого CRUD приложения
-3) [Модели ответов и обработка ошибок](https://github.com/ArtemE91/LecturesFastAPi/blob/main/lesson3/README.md)
-	1) Ответы в FastAPI
-	2) Построение модели ответа
-	3) mypy
-	4) Обработка ошибок
+3) [Pydantic, Модели ответов и обработка ошибок](https://github.com/ArtemE91/LecturesFastAPi/blob/main/lesson3/README.md)
+	1) Pydantic
+    2) Ответы в FastAPI
+	3) Построение модели ответа
+	4) mypy
+	5) Обработка ошибок
 4) [Шаблоны в FastAPI](https://github.com/ArtemE91/LecturesFastAPi/blob/main/lesson4/README.md)
 	1) Понимание Jinja
 	2) Использование шаблонов Jinja2 в FastAPI, SQL Model
