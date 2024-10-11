@@ -1421,8 +1421,6 @@ async def delete_single_todo(todo_id: int) -> dict:
 На этом занятии мы узнали, как возвращать правильные коды ответов клиентам, а также переопределять код состояния по умолчанию. Также важно отметить, что код состояния успешный по умолчанию — 200.
 
 
-### Задания:
-
 ##### Задание 1: Основы Pydantic
 
 Создайте простую модель Pydantic для представления пользователя с полями 
@@ -1547,26 +1545,27 @@ print(article)
 
 </details>
 
-##### Задание 5: Валидация с помощью регулярных выражений
+##### Задание 5: Основной alias
 
-Создайте модель Pydantic для представления пользователя с полем **email** (строка), которое должно соответствовать формату `email-адреса`. Используйте регулярное выражение для валидации.
+Создайте модель `Person`, которая имеет поля `first_name` и `last_name`, используя alias `first` и `last`. Проверьте, что данные, переданные с `alias`, правильно преобразуются в поля модели.
 
 <details>
 
 <summary>Решение</summary>
 
 ```python
-from pydantic import BaseModel, EmailStr
-
-class User(BaseModel):
-    email: EmailStr
+from pydantic import BaseModel, Field 
+class Person(BaseModel): 
+	first_name: str = Field(..., alias='first')
+	last_name: str = Field(..., alias='last')
 ```
 
 Пример использования:
 
 ```python
-user = User(email="john.doe@example.com")
-print(user)
+data = {'first': 'John', 'last': 'Doe'} 
+person = Person(**data) 
+print(person)
 ```
 
 </details>
@@ -1603,44 +1602,65 @@ print(user)
 
 </details>
 
-##### Задание 7: Работа с датами и временем
+##### Задание 7: Исключение простых полей
 
-Создайте модель Pydantic для представления события с полями 
-- **name** (строка)
-- **start_time** (datetime)
-- **end_time** (datetime).
-Добавьте валидатор, который проверяет, что `end_time` больше `start_time`.
+Создайте модель `Person` с полями `first_name`, `last_name` и `age`. Проверьте, как использовать `exclude` для исключения поля `age` при сериализации.
 
 <details>
 
 <summary>Решение</summary>
 
 ```python
-from pydantic import BaseModel, validator
-from datetime import datetime
-
-class Event(BaseModel):
-    name: str
-    start_time: datetime
-    end_time: datetime
-
-    @validator('end_time')
-    def end_time_must_be_after_start_time(cls, v, values):
-        if 'start_time' in values and v <= values['start_time']:
-            raise ValueError('end_time must be after start_time')
-        return v
+from pydantic import BaseModel
+class Person(BaseModel):
+	first_name: str 
+	last_name: str age: int
 ```
 
 Пример использования:
 
 ```python
-event = Event(name="Meeting", start_time=datetime(2023, 10, 1, 10, 0), end_time=datetime(2023, 10, 1, 12, 0))
-print(event)
+person = Person(first_name="Alice", last_name="Smith", age=30)
+person_dict = person.dict(exclude={"age"}) 
+print(person_dict)
 ```
 
 </details>
 
-##### Задание 8: Работа с перечислениями (enums)
+
+##### Задание 8: Исключение вложенных полей
+
+Создайте модели `Address` и `User`, где `User` содержит `Address`. Используйте `exclude` для исключения вложенного поля `city`.
+
+<details>
+
+<summary>Решение</summary>
+
+```python
+from pydantic import BaseModel
+
+class Address(BaseModel):
+    street: str
+    city: str
+
+class User(BaseModel):
+    username: str
+    address: Address
+```
+
+Пример использования:
+
+```python
+user = User(username="johndoe", address=Address(street="123 Main St", city="Anytown"))
+
+# Исключение вложенного поля 'city'
+user_dict = user.dict(exclude={"address": {"city"}})
+print(user_dict)
+```
+
+</details>
+
+##### Задание 9: Работа с перечислениями (enums)
 
 Создайте модель Pydantic для представления задачи с полями 
 - **title** (строка) 
@@ -1673,7 +1693,7 @@ print(task)
 
 </details>
 
-##### Задание 9: Валидация списков
+##### Задание 10: Валидация списков
 
 Создайте модель Pydantic для представления группы пользователей с полем **users** (список моделей пользователей). Добавьте валидатор, который проверяет, что список не пустой.
 
@@ -1705,6 +1725,76 @@ class UserGroup(BaseModel):
 users = [User(id=1, name="John Doe"), User(id=2, name="Jane Doe")]
 user_group = UserGroup(users=users)
 print(user_group)
+```
+
+</details>
+
+
+##### Задание 11: API для управления заказами
+
+**Определение модели заказа:**
+
+Создайте модель `Order` с полями:
+- `order_id` (int, уникальный идентификатор заказа)
+- `customer_name` (str, имя клиента)
+- `items` (list[str], список товаров)
+- `total_amount` (float, общая сумма заказа)
+
+**Создание эндпоинтов:**
+1. **Создание заказа** (POST `/orders/`):
+    - Принимает данные заказа и возвращает созданный заказ с `order_id`.
+2. **Получение заказа по ID** (GET `/orders/{order_id}`):
+    - Возвращает информацию о заказе по заданному `order_id`.
+3. **Обновление заказа** (PATCH `/orders/{order_id}`):
+    - Позволяет обновлять данные заказа по `order_id`.
+4. **Удаление заказа** (DELETE `/orders/{order_id}`):
+    - Удаляет заказ по `order_id` и возвращает сообщение об успешном удалении.
+
+<details>
+
+<summary>Решение</summary>
+
+```python
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List
+
+app = FastAPI()
+
+class Order(BaseModel):
+    order_id: int
+    customer_name: str
+    items: List[str]
+    total_amount: float
+
+orders_db = {}
+
+@app.post("/orders/", response_model=Order, status_code=201)
+async def create_order(order: Order):
+    orders_db[order.order_id] = order
+    return order
+
+@app.get("/orders/{order_id}", response_model=Order)
+async def get_order(order_id: int):
+    order = orders_db.get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return order
+
+@app.patch("/orders/{order_id}", response_model=Order)
+async def update_order(order_id: int, order: Order):
+    if order_id not in orders_db:
+        raise HTTPException(status_code=404, detail="Order not found")
+    orders_db[order_id] = order
+    return order
+
+@app.delete("/orders/{order_id}")
+async def delete_order(order_id: int):
+    if order_id not in orders_db:
+        raise HTTPException(status_code=404, detail="Order not found")
+    del orders_db[order_id]
+    return {"detail": "Order deleted"}
+
 ```
 
 </details>
