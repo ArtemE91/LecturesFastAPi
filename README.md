@@ -20,9 +20,12 @@
 	3) Построение модели ответа
 	4) mypy
 	5) Обработка ошибок
-4) [Шаблоны в FastAPI](https://github.com/ArtemE91/LecturesFastAPi/blob/main/lesson4/README.md)
-	1) Понимание Jinja
-	2) Использование шаблонов Jinja2 в FastAPI, SQL Model
+4) [Фоновые задачи, Redis, Celery, Шаблоны в FastAPI](https://github.com/ArtemE91/LecturesFastAPi/blob/main/lesson4/README.md)
+	1) Фоновые задачи
+    2) Redis
+    3) Celery
+    4) Понимание Jinja
+    5) Использование шаблонов Jinja2 в FastAPI, SQL Model
 5) [Структурирование приложений FastAPI](https://github.com/ArtemE91/LecturesFastAPi/blob/main/lesson5/README.md)
 	1) Структурирование маршрутов и моделей приложений
 	2) SQLModel
