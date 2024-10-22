@@ -592,6 +592,347 @@ curl -X 'DELETE' 'http://127.0.0.1:5000/events/1' -H 'accept: application/json' 
 {"message":"Event deleted successfully."}
 ```
 
+### <font color="#46aa63">Alembic</font>
+
+При запуске приложения мы постоянно создавали таблицы и удаляли их после завершения работы приложения. Это делалось для того что таблицы базы данных всегда были актуальны описаным моделям. Проблема в этом подходе что при выключении приложения мы затирали все созданные записи. Решить нашу проблему нам поможет **Alembic**.
+
+**Alembic** обеспечивает создание, управление и вызов сценариев управления изменениями для реляционной базы данных, используя `SQLAlchemy` в качестве базового движка.
+
+Использование **Alembic** начинается с создания `среды миграции`. Это каталог скриптов, предназначенных для конкретного приложения. Среда миграции создается только один раз и затем поддерживается вместе с исходным кодом самого приложения. Среда создается с помощью команды `init`, а затем настраивается в соответствии с конкретными потребностями приложения.
+
+Структура этой среды, включая некоторые сгенерированные сценарии миграций, выглядит следующим образом:
+
+```txt
+yourproject/
+    alembic/
+        env.py
+        README
+        script.py.mako
+        versions/
+            3512b954651e_add_account.py
+            2b1ae634e5cd_add_order_id.py
+            3adcc9a56557_rename_username_field.py
+```
+
+Каталог содержит следующие `каталоги/файлы`:
+
+- `yourproject` - это корневой каталог исходного кода вашего приложения или какой-либо каталог внутри него.
+  
+- `alembic` - этот каталог находится в дереве исходного кода вашего приложения и является домашней средой миграции. Он может называться как угодно, и проект, использующий несколько баз данных, может даже содержать более одной.
+  
+- `env.py` - это скрипт на `Python`, который запускается всякий раз, когда вызывается инструмент миграции `alembic`. По крайней мере, в нем содержатся инструкции по настройке и созданию модуля `SQLAlchemy`, получению соединения от этого модуля вместе с транзакцией, а затем вызову модуля миграции, используя это соединение в качестве источника подключения к базе данных. 
+  
+  Сценарий `env.py` является частью сгенерированной среды, поэтому способ выполнения миграции полностью настраивается. Здесь приведены точные сведения о том, как подключаться, а также о том, как вызывается среда миграции. Сценарий может быть изменен таким образом, чтобы можно было использовать несколько движков, в среду миграции можно было передавать пользовательские аргументы, загружать и предоставлять доступ к библиотекам и моделям, специфичным для приложения.
+  
+  Alembic включает в себя набор шаблонов инициализации, которые содержат различные варианты `env.py` для различных случаев использования.
+  
+- `README` - входит в состав различных шаблонов среды и должен содержать что-то информативное.
+  
+- `script.py.mako` - это файл шаблона `Mako`, который используется для создания новых сценариев миграции. Все, что находится здесь, используется для создания новых файлов в `versions/`. Это возможно с помощью сценария, так что можно управлять структурой каждого файла миграции, включая стандартный импорт, который должен быть в каждом из них, а также изменения в структуре функций `upgrade()` и `downgrade()`. Например, среда `multidb` позволяет создавать множество функций, используя схему именования `upgrade_engine1()`, `upgrade_engine2()`.
+  
+- `versions/` - в этом каталоге хранятся отдельные версии скриптов. Пользователи других инструментов миграции могут заметить, что в файлах здесь не используются целые числа по возрастанию, а вместо этого используется частичный `GUID`. В `Alembic` порядок следования сценариев версий определяется директивами внутри самих сценариев, и теоретически возможно “сращивать” файлы версий между другими, позволяя объединять последовательности переноса из разных ветвей, хотя и аккуратно вручную.
+
+Имея общее представление о том, что такое среда, мы можем создать ее с помощью команды `alembic init`. Это позволит создать среду с использованием шаблона `generic`. Установим пакет alembic и выполним команду `init alembic`:
+
+```shell
+pip install alembic
+alembic init alembic
+
+  Creating directory '/Users/arteme/PycharmProjects/planner/alembic' ...  done
+  Creating directory '/Users/arteme/PycharmProjects/planner/alembic/versions' ...  done
+  Generating /Users/arteme/PycharmProjects/planner/alembic/script.py.mako ...  done
+  Generating /Users/arteme/PycharmProjects/planner/alembic/env.py ...  done
+  Generating /Users/arteme/PycharmProjects/planner/alembic/README ...  done
+  Generating /Users/arteme/PycharmProjects/planner/alembic.ini ...  done
+  Please edit configuration/connection/logging settings in
+  '/Users/arteme/PycharmProjects/planner/alembic.ini' before proceeding.
+```
+
+**Alembic** поместил файл `alembic.ini` в текущий каталог. Это файл, который ищет скрипт `alembic` при вызове. Этот файл может находиться в другом каталоге, местоположение которого указывается либо параметром `--config` для `alembic` runner,  переменной среды `ALEMBIC_CONFIG` (первое имеет приоритет).
+
+Для создания первой миграции нам необходимо добавить несколько строк в `alembic/env.py`:
+
+```python
+from logging.config import fileConfig  
+  
+from sqlmodel import SQLModel  # NEW
+from sqlalchemy import engine_from_config  
+from sqlalchemy import pool  
+  
+from alembic import context  
+  
+from database.connection import sqlite_url  # NEW
+from models.events import Event  # NEW
+from models.users import User  # NEW
+  
+  
+config = context.config  
+  
+  
+if config.config_file_name is not None:  
+    fileConfig(config.config_file_name)  
+  
+  
+target_metadata = SQLModel.metadata  
+  
+  
+def run_migrations_offline() -> None:  
+    url = config.get_main_option("sqlalchemy.url")  
+    context.configure(  
+        url=url,  
+        target_metadata=target_metadata,  
+        literal_binds=True,  
+        dialect_opts={"paramstyle": "named"},  
+    )  
+  
+    with context.begin_transaction():  
+        context.run_migrations()  
+  
+  
+def run_migrations_online() -> None:  
+    config.set_main_option("sqlalchemy.url", sqlite_url)  # NEW
+  
+    connectable = engine_from_config(  
+        config.get_section(config.config_ini_section, {}),  
+        prefix="sqlalchemy.",  
+        poolclass=pool.NullPool,  
+    )  
+  
+    with connectable.connect() as connection:  
+        context.configure(  
+            connection=connection, target_metadata=target_metadata  
+        )  
+  
+        with context.begin_transaction():  
+            context.run_migrations()  
+  
+  
+if context.is_offline_mode():  
+    run_migrations_offline()  
+else:  
+    run_migrations_online()
+```
+
+Выполним команду для создания миграции:
+
+```shell
+alembic revision --autogenerate -m "init"
+
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.autogenerate.compare] Detected added table 'user'
+INFO  [alembic.autogenerate.compare] Detected added table 'event'
+  Generating /Users/arteme/PycharmProjects/planner/alembic/versions/d483bb54873e_init.py ...  done
+```
+
+В папке`versions` создался новый файл `d483bb54873e_init.py`. Посмотрим на него:
+
+```python
+"""init  
+  
+Revision ID: d483bb54873e  
+Revises: Create Date: 2024-09-18 11:36:09.198610  
+  
+"""  
+from typing import Sequence, Union  
+  
+import sqlmodel  
+from alembic import op  
+import sqlalchemy as sa  
+  
+  
+# revision identifiers, used by Alembic.  
+revision: str = 'd483bb54873e'  
+down_revision: Union[str, None] = None  
+branch_labels: Union[str, Sequence[str], None] = None  
+depends_on: Union[str, Sequence[str], None] = None  
+  
+  
+def upgrade() -> None:  
+    # ### commands auto generated by Alembic - please adjust! ###  
+    op.create_table('user',  
+    sa.Column('id', sa.Integer(), nullable=False),  
+    sa.Column('email', sqlmodel.sql.sqltypes.AutoString(), nullable=False),  
+    sa.Column('username', sqlmodel.sql.sqltypes.AutoString(), nullable=False),  
+    sa.PrimaryKeyConstraint('id')  
+    )  
+    op.create_table('event',  
+    sa.Column('id', sa.Integer(), nullable=False),  
+    sa.Column('title', sqlmodel.sql.sqltypes.AutoString(), nullable=False),  
+    sa.Column('description', sqlmodel.sql.sqltypes.AutoString(), nullable=False),  
+    sa.Column('user_id', sa.Integer(), nullable=True),  
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),  
+    sa.PrimaryKeyConstraint('id')  
+    )  
+    # ### end Alembic commands ###  
+  
+  
+def downgrade() -> None:  
+    # ### commands auto generated by Alembic - please adjust! ###  
+    op.drop_table('event')  
+    op.drop_table('user')  
+    # ### end Alembic commands ###
+```
+
+
+Файл содержит некоторую информацию о заголовке, идентификаторы текущей версии и версии `downgrade` импорт основных директив `Alembic` и  функции `upgrade()` и `downgrade()`, которые будут применять набор изменений к нашей базе данных. Обычно требуется upgrade(), в то время как downgrade() требуется только в том случае, если требуется возможность пересмотра в сторону понижения.
+
+Еще одна вещь, на которую следует обратить внимание, - это переменная `down_revision`. Именно так `Alembic` определяет правильный порядок применения изменений. Когда мы создаем следующую редакцию, идентификатор `down_revision` нового файла будет указывать на предыдущую.
+
+Применим наши изменения:
+
+```shell
+alembic upgrade head
+
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> d483bb54873e, init
+
+```
+
+Команда выполнилась успешно и теперь мы подправим `main.py`:
+
+```python
+import uvicorn  
+from fastapi import FastAPI  
+  
+from routers.users import user_router  
+from routers.events import event_router  
+  
+  
+app = FastAPI()  
+app.include_router(user_router, prefix="/users")  
+app.include_router(event_router, prefix="/events")  
+  
+  
+if __name__ == "__main__":  
+    uvicorn.run("main:app", host="127.0.0.1", port=5000, reload=True)
+```
+
+Запустим наше приложение и добавим несколько записей:
+
+```shell
+uvicorn main:app --host 127.0.0.1 --port 5000 --reload
+
+curl -X 'POST' 'http://127.0.0.1:5000/users/' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{"email": "fastapi@packt.com", "username": "FastPackt"}'
+
+ curl -X 'POST' 'http://127.0.0.1:5000/users/' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{"email": "pydantic@packt.com", "username": "Pydantic"}'
+ 
+curl -X 'POST' 'http://127.0.0.1:5000/events/' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{"title": "Event 1", "description": "First test event", "user_id": 1}'
+
+curl -X 'POST' 'http://127.0.0.1:5000/events/' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{"title": "Event 2", "description": "Second test event", "user_id": 2}'
+```
+
+Как видим все работает. Например мы решили изменить модель `Event` добавив в нее поле `date_create`:
+
+```python
+class Event(SQLModel, table=True):  
+    id: int | None = Field(default=None, primary_key=True)  
+    title: str  
+    description: str  
+    date_create: datetime = Field(default_factory=datetime.utcnow, nullable=False)  
+    user_id: int | None = Field(default=None, foreign_key="user.id")  
+    user: User | None = Relationship(back_populates="events")  
+  
+    model_config = {  
+        "json_schema_extra": {  
+            "example": {  
+                "title": "FastAPI Book Launch",  
+                "description": "We will be discussing the contents of the FastAPI book in this event.",  
+                "user_id": 1  
+            }  
+        }  
+    }
+```
+
+Давайте создадим миграции:
+
+```shell
+alembic revision --autogenerate -m "add date_create in Event"
+```
+
+В папке `versions` появился новый файл миграции `610c0310c549_add_date_create_in_event.py`, мы видим что в функции  `upgrade()` создается новая колонка `date_create` в таблице `event`. Применим миграцию и создадим новый `Event`:
+
+```shell
+alembic upgrade head
+
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) Cannot add a NOT NULL column with default value NULL
+```
+
+Как видим у нас возникла ошибка. Поле `date_create` обязательное и в базе уже есть записи, необходимо указать значение которое впишется в старые записи. Для этого в миграции мы добавим значение `server_default`:
+
+```python
+"""add date_create in Event  
+  
+Revision ID: 610c0310c549  
+Revises: d483bb54873e  
+Create Date: 2024-09-18 14:41:39.849824  
+  
+"""  
+from datetime import datetime  
+from typing import Sequence, Union  
+  
+from alembic import op  
+import sqlalchemy as sa  
+  
+  
+# revision identifiers, used by Alembic.  
+revision: str = '610c0310c549'  
+down_revision: Union[str, None] = 'd483bb54873e'  
+branch_labels: Union[str, Sequence[str], None] = None  
+depends_on: Union[str, Sequence[str], None] = None  
+  
+  
+def upgrade() -> None:  
+    # ### commands auto generated by Alembic - please adjust! ###  
+    op.add_column('event', sa.Column('date_create', sa.DateTime(), nullable=False, server_default=str(datetime.utcnow())))  
+    # ### end Alembic commands ###  
+  
+  
+def downgrade() -> None:  
+    # ### commands auto generated by Alembic - please adjust! ###  
+    op.drop_column('event', 'date_create')  
+    # ### end Alembic commands ###
+```
+
+Снова попробуем выполнить миграцию:
+
+```shell
+alembic upgrade head 
+
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade d483bb54873e -> 610c0310c549, add date_create in Event
+```
+
+Все прошло успешно. Теперь в таблице `event` появился столбец `date_create`:
+
+![Снимок экрана 2024-09-18 в 14.58.04.png](images%2F%D0%A1%D0%BD%D0%B8%D0%BC%D0%BE%D0%BA%20%D1%8D%D0%BA%D1%80%D0%B0%D0%BD%D0%B0%202024-09-18%20%D0%B2%2014.58.04.png)
+
+Добавим новое событие чтобы проверить что все работает:
+
+```shell
+curl -X 'POST' 'http://127.0.0.1:5000/events/' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{"title": "Event 4", "description": "Test event", "user_id": 1}'
+
+{"id":4,"user_id":1,"description":"Test event","date_create":"2024-09-18T11:56:15.030437","title":"Event 4"}
+```
+
+Мы успешно внедрили базу данных SQL в наше приложение с помощью SQLModel, а также реализовали CRUD операции. Давайте зафиксируем изменения, внесенные в приложение, прежде чем научиться реализовывать CRUD операции в MongoDB:
+
+```shell
+git add .
+
+git commit -m "[Feature] Incorporate a ModelSQL database and implement CRUD operations"
+
+git push -u origin planner-modelsql-sync
+```
+
+Вернемся на ветку `main`:
+
+```shell
+git checkout main
+```
+
 ## Задание
 
 ### Задача 1: Создание модели

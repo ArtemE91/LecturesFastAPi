@@ -1,349 +1,379 @@
-# Alembic, ODM Beanie
+# MongoDB, ODM Beanie
 
 ### План занятия
 
-1) Alembic
+1) MongoDB
 2) ODM Beanie
 
-### <font color="#46aa63">Alembic</font>
+### <font color="#46aa63">Mongo DB</font>
 
-При запуске приложения мы постоянно создавали таблицы и удаляли их после завершения работы приложения. Это делалось для того что таблицы базы данных всегда были актуальны описаным моделям. Проблема в этом подходе что при выключении приложения мы затирали все созданные записи. Решить нашу проблему нам поможет **Alembic**.
+##### <font color="#46aa63">NoSQL</font>
 
-**Alembic** обеспечивает создание, управление и вызов сценариев управления изменениями для реляционной базы данных, используя `SQLAlchemy` в качестве базового движка.
+`NoSQL` (Not Only SQL) баз данных — это класс систем управления базами данных, которые предоставляют альтернативные модели хранения и обработки данных по сравнению с традиционными реляционными СУБД. 
 
-Использование **Alembic** начинается с создания `среды миграции`. Это каталог скриптов, предназначенных для конкретного приложения. Среда миграции создается только один раз и затем поддерживается вместе с исходным кодом самого приложения. Среда создается с помощью команды `init`, а затем настраивается в соответствии с конкретными потребностями приложения.
+`NoSQL` баз данных предназначены для работы с неструктурированными и полуструктурированными данными. Они позволяют хранить данные в формах, которые не требуют строгой схемы, как это делается в реляционных СУБД.
 
-Структура этой среды, включая некоторые сгенерированные сценарии миграций, выглядит следующим образом:
+Существует несколько основных типов `NoSQL` баз данных, каждый из которых подходит для определенных сценариев:
 
-```txt
-yourproject/
-    alembic/
-        env.py
-        README
-        script.py.mako
-        versions/
-            3512b954651e_add_account.py
-            2b1ae634e5cd_add_order_id.py
-            3adcc9a56557_rename_username_field.py
-```
-
-Каталог содержит следующие `каталоги/файлы`:
-
-- `yourproject` - это корневой каталог исходного кода вашего приложения или какой-либо каталог внутри него.
-  
-- `alembic` - этот каталог находится в дереве исходного кода вашего приложения и является домашней средой миграции. Он может называться как угодно, и проект, использующий несколько баз данных, может даже содержать более одной.
-  
-- `env.py` - это скрипт на `Python`, который запускается всякий раз, когда вызывается инструмент миграции `alembic`. По крайней мере, в нем содержатся инструкции по настройке и созданию модуля `SQLAlchemy`, получению соединения от этого модуля вместе с транзакцией, а затем вызову модуля миграции, используя это соединение в качестве источника подключения к базе данных. 
-  
-  Сценарий `env.py` является частью сгенерированной среды, поэтому способ выполнения миграции полностью настраивается. Здесь приведены точные сведения о том, как подключаться, а также о том, как вызывается среда миграции. Сценарий может быть изменен таким образом, чтобы можно было использовать несколько движков, в среду миграции можно было передавать пользовательские аргументы, загружать и предоставлять доступ к библиотекам и моделям, специфичным для приложения.
-  
-  Alembic включает в себя набор шаблонов инициализации, которые содержат различные варианты `env.py` для различных случаев использования.
-  
-- `README` - входит в состав различных шаблонов среды и должен содержать что-то информативное.
-  
-- `script.py.mako` - это файл шаблона `Mako`, который используется для создания новых сценариев миграции. Все, что находится здесь, используется для создания новых файлов в `versions/`. Это возможно с помощью сценария, так что можно управлять структурой каждого файла миграции, включая стандартный импорт, который должен быть в каждом из них, а также изменения в структуре функций `upgrade()` и `downgrade()`. Например, среда `multidb` позволяет создавать множество функций, используя схему именования `upgrade_engine1()`, `upgrade_engine2()`.
-  
-- `versions/` - в этом каталоге хранятся отдельные версии скриптов. Пользователи других инструментов миграции могут заметить, что в файлах здесь не используются целые числа по возрастанию, а вместо этого используется частичный `GUID`. В `Alembic` порядок следования сценариев версий определяется директивами внутри самих сценариев, и теоретически возможно “сращивать” файлы версий между другими, позволяя объединять последовательности переноса из разных ветвей, хотя и аккуратно вручную.
-
-Имея общее представление о том, что такое среда, мы можем создать ее с помощью команды `alembic init`. Это позволит создать среду с использованием шаблона `generic`. Установим пакет alembic и выполним команду `init alembic`:
-
-```shell
-pip install alembic
-alembic init alembic
-
-  Creating directory '/Users/arteme/PycharmProjects/planner/alembic' ...  done
-  Creating directory '/Users/arteme/PycharmProjects/planner/alembic/versions' ...  done
-  Generating /Users/arteme/PycharmProjects/planner/alembic/script.py.mako ...  done
-  Generating /Users/arteme/PycharmProjects/planner/alembic/env.py ...  done
-  Generating /Users/arteme/PycharmProjects/planner/alembic/README ...  done
-  Generating /Users/arteme/PycharmProjects/planner/alembic.ini ...  done
-  Please edit configuration/connection/logging settings in
-  '/Users/arteme/PycharmProjects/planner/alembic.ini' before proceeding.
-```
-
-**Alembic** поместил файл `alembic.ini` в текущий каталог. Это файл, который ищет скрипт `alembic` при вызове. Этот файл может находиться в другом каталоге, местоположение которого указывается либо параметром `--config` для `alembic` runner,  переменной среды `ALEMBIC_CONFIG` (первое имеет приоритет).
-
-Для создания первой миграции нам необходимо добавить несколько строк в `alembic/env.py`:
-
-```python
-from logging.config import fileConfig  
-  
-from sqlmodel import SQLModel  # NEW
-from sqlalchemy import engine_from_config  
-from sqlalchemy import pool  
-  
-from alembic import context  
-  
-from database.connection import sqlite_url  # NEW
-from models.events import Event  # NEW
-from models.users import User  # NEW
-  
-  
-config = context.config  
-  
-  
-if config.config_file_name is not None:  
-    fileConfig(config.config_file_name)  
-  
-  
-target_metadata = SQLModel.metadata  
-  
-  
-def run_migrations_offline() -> None:  
-    url = config.get_main_option("sqlalchemy.url")  
-    context.configure(  
-        url=url,  
-        target_metadata=target_metadata,  
-        literal_binds=True,  
-        dialect_opts={"paramstyle": "named"},  
-    )  
-  
-    with context.begin_transaction():  
-        context.run_migrations()  
-  
-  
-def run_migrations_online() -> None:  
-    config.set_main_option("sqlalchemy.url", sqlite_url)  # NEW
-  
-    connectable = engine_from_config(  
-        config.get_section(config.config_ini_section, {}),  
-        prefix="sqlalchemy.",  
-        poolclass=pool.NullPool,  
-    )  
-  
-    with connectable.connect() as connection:  
-        context.configure(  
-            connection=connection, target_metadata=target_metadata  
-        )  
-  
-        with context.begin_transaction():  
-            context.run_migrations()  
-  
-  
-if context.is_offline_mode():  
-    run_migrations_offline()  
-else:  
-    run_migrations_online()
-```
-
-Выполним команду для создания миграции:
-
-```shell
-alembic revision --autogenerate -m "init"
-
-INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
-INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
-INFO  [alembic.autogenerate.compare] Detected added table 'user'
-INFO  [alembic.autogenerate.compare] Detected added table 'event'
-  Generating /Users/arteme/PycharmProjects/planner/alembic/versions/d483bb54873e_init.py ...  done
-```
-
-В папке`versions` создался новый файл `d483bb54873e_init.py`. Посмотрим на него:
-
-```python
-"""init  
-  
-Revision ID: d483bb54873e  
-Revises: Create Date: 2024-09-18 11:36:09.198610  
-  
-"""  
-from typing import Sequence, Union  
-  
-import sqlmodel  
-from alembic import op  
-import sqlalchemy as sa  
-  
-  
-# revision identifiers, used by Alembic.  
-revision: str = 'd483bb54873e'  
-down_revision: Union[str, None] = None  
-branch_labels: Union[str, Sequence[str], None] = None  
-depends_on: Union[str, Sequence[str], None] = None  
-  
-  
-def upgrade() -> None:  
-    # ### commands auto generated by Alembic - please adjust! ###  
-    op.create_table('user',  
-    sa.Column('id', sa.Integer(), nullable=False),  
-    sa.Column('email', sqlmodel.sql.sqltypes.AutoString(), nullable=False),  
-    sa.Column('username', sqlmodel.sql.sqltypes.AutoString(), nullable=False),  
-    sa.PrimaryKeyConstraint('id')  
-    )  
-    op.create_table('event',  
-    sa.Column('id', sa.Integer(), nullable=False),  
-    sa.Column('title', sqlmodel.sql.sqltypes.AutoString(), nullable=False),  
-    sa.Column('description', sqlmodel.sql.sqltypes.AutoString(), nullable=False),  
-    sa.Column('user_id', sa.Integer(), nullable=True),  
-    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),  
-    sa.PrimaryKeyConstraint('id')  
-    )  
-    # ### end Alembic commands ###  
-  
-  
-def downgrade() -> None:  
-    # ### commands auto generated by Alembic - please adjust! ###  
-    op.drop_table('event')  
-    op.drop_table('user')  
-    # ### end Alembic commands ###
-```
+- **Документо-ориентированные базы данных** (например, `MongoDB`, `CouchDB`): Хранят данные в виде документов, обычно в формате JSON или BSON. Эти базы данных идеально подходят для хранения неструктурированных данных.
+    
+- **Колонно-ориентированные базы данных** (например, `Apache Cassandra`, `ClickHouse`): Оптимизированы для работы с большими объемами данных и быстро обрабатывают записи по столбцам, а не по строкам.
+    
+- **Графовые базы данных** (например, `Neo4j`, `ArangoDB`): Используются для хранения и обработки графов данных, что делает их идеальными для приложений, связанных с социальными сетями и анализом взаимосвязей.
+    
+- **Ключ-значение базы данных** (например, `Redis`, `Amazon DynamoDB`): Хранят данные в виде пар "ключ-значение", что обеспечивает высокую скорость доступа к данным.
 
 
-Файл содержит некоторую информацию о заголовке, идентификаторы текущей версии и версии `downgrade` импорт основных директив `Alembic` и  функции `upgrade()` и `downgrade()`, которые будут применять набор изменений к нашей базе данных. Обычно требуется upgrade(), в то время как downgrade() требуется только в том случае, если требуется возможность пересмотра в сторону понижения.
+Преимущества NoSQL баз данных:
 
-Еще одна вещь, на которую следует обратить внимание, - это переменная `down_revision`. Именно так `Alembic` определяет правильный порядок применения изменений. Когда мы создаем следующую редакцию, идентификатор `down_revision` нового файла будет указывать на предыдущую.
+- **Гибкость схемы**: не требуется заранее определять схему данных, что упрощает адаптацию к изменяющимся требованиям.
+- **Масштабируемость**: многие NoSQL базы данных позволяют горизонтальное масштабирование, что делает их более эффективными для обработки больших объемов данных.
+- **Высокая производительность**: оптимизированы для определенных типов операций, таких как запись и чтение больших объемов данных.
+- **Устойчивость к сбоям**: Многие NoSQL базы данных предлагают встроенные механизмы репликации и резервного копирования.
 
-Применим наши изменения:
+Недостатки NoSQL баз данных:
 
-```shell
-alembic upgrade head
+- **Отсутствие стандартов**: не существует единых стандартов для NoSQL баз данных, что может затруднить выбор решения.
+- **Сложности с консистентностью**: многие NoSQL базы данных используют модели "в конечном итоге согласованности", что может быть проблемой для критически важных приложений.
+- **Ограниченная поддержка транзакций**: в отличие от реляционных баз данных, поддержка ACID-транзакций может быть ограничена.
 
-INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
-INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
-INFO  [alembic.runtime.migration] Running upgrade  -> d483bb54873e, init
+Сценарии использования:
 
-```
+NoSQL базы данных хорошо подходят для:
 
-Команда выполнилась успешно и теперь мы подправим `main.py`:
+- Хранения больших объемов данных с высокой скоростью записи (например, логирование).
+- Работа с данными, которые быстро меняются или не имеют фиксированной структуры (например, данные из социальных сетей).
+- Обработки графовых данных и анализа взаимосвязей.
 
-```python
-import uvicorn  
-from fastapi import FastAPI  
-  
-from routers.users import user_router  
-from routers.events import event_router  
-  
-  
-app = FastAPI()  
-app.include_router(user_router, prefix="/users")  
-app.include_router(event_router, prefix="/events")  
-  
-  
-if __name__ == "__main__":  
-    uvicorn.run("main:app", host="127.0.0.1", port=5000, reload=True)
-```
+NoSQL базы данных представляют собой мощный инструмент для решения современных задач хранения и обработки данных. Их использование зависит от конкретных требований и особенностей приложения.
 
-Запустим наше приложение и добавим несколько записей:
+##### <font color="#46aa63">Что такое MongoDB</font>
 
-```shell
-uvicorn main:app --host 127.0.0.1 --port 5000 --reload
+**MongoDB** — это популярная NoSQL база данных, ориентированная на документо-ориентированное хранение данных. Она разработана для обработки больших объемов неструктурированных и полуструктурированных данных, обеспечивая высокую производительность, гибкость и масштабируемость. Вот ключевые аспекты MongoDB:
 
-curl -X 'POST' 'http://127.0.0.1:5000/users/' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{"email": "fastapi@packt.com", "username": "FastPackt"}'
+**Документо-ориентированная структура**
 
- curl -X 'POST' 'http://127.0.0.1:5000/users/' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{"email": "pydantic@packt.com", "username": "Pydantic"}'
+- **Документы**: Данные хранятся в виде документов, обычно в формате BSON (Binary JSON). Каждый документ представляет собой набор полей и значений, что позволяет легко моделировать сложные структуры данных.
+- **Коллекции**: Документы группируются в коллекции, которые аналогичны таблицам в реляционных базах данных, но не требуют строгой схемы.
+
+**Гибкость схемы**
+   
+   MongoDB позволяет хранить данные без заранее определенной схемы, что упрощает адаптацию к изменяющимся требованиям. Вы можете добавлять новые поля в документы без необходимости изменять всю структуру базы данных.
+
+**Высокая производительность**
  
-curl -X 'POST' 'http://127.0.0.1:5000/events/' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{"title": "Event 1", "description": "First test event", "user_id": 1}'
+ MongoDB обеспечивает высокую скорость операций записи и чтения благодаря использованию индексов и механизма кэширования. Это делает его подходящим для приложений с высокой нагрузкой.
 
-curl -X 'POST' 'http://127.0.0.1:5000/events/' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{"title": "Event 2", "description": "Second test event", "user_id": 2}'
+**Масштабируемость**
+
+MongoDB поддерживает горизонтальное масштабирование (sharding), что позволяет распределять данные по нескольким серверам и легко расширять систему по мере роста нагрузки.
+
+**Агрегация данных**
+
+MongoDB предоставляет мощный фреймворк для агрегации данных, который позволяет выполнять сложные запросы, фильтрацию и преобразование данных с помощью этапов, таких как `$match`, `$group`, `$sort`, и `$project`.
+
+**Репликация и доступность**
+
+MongoDB поддерживает репликацию, что позволяет создавать резервные копии данных на нескольких серверах и обеспечивает высокую доступность. Если один из узлов выходит из строя, другой может взять на себя его задачи.
+
+**Безопасность**
+
+MongoDB предлагает различные механизмы аутентификации и авторизации, а также поддержку шифрования данных.
+
+**Сценарии использования**
+
+- Приложений с неструктурированными данными (например, социальные сети, интернет-магазины).
+- Систем реального времени, требующих быстрой обработки данных.
+- Проектов, где структура данных может изменяться со временем (например, стартапы и MVP).
+
+MongoDB является мощным инструментом для работы с данными в современных приложениях, предлагая гибкость и масштабируемость, которые могут быть критически важны для успеха бизнеса. Его простота в использовании и возможности делают его популярным выбором среди разработчиков.
+
+##### <font color="#46aa63">Основные компоненты MongoDB</font>
+
+**Серверы**
+    
+- **MongoDB Server**: это основное приложение, которое управляет базой данных. Оно обрабатывает запросы от клиентов, управляет данными и обеспечивает безопасность и доступность.
+- **Репликация**: серверы могут быть организованы в репликационные наборы, где один сервер является основным (primary), а остальные — вторичными (secondary). Вторичные серверы могут использоваться для резервирования и повышения доступности.
+
+ **Клиенты**
+    
+- **MongoDB Shell**: инструмент командной строки для взаимодействия с сервером MongoDB. Позволяет выполнять запросы, управлять базами данных и коллекциями.
+- **Клиентские библиотеки**: существуют библиотеки для различных языков программирования (например, Python, Java, Node.js), которые позволяют разработчикам взаимодействовать с MongoDB из приложений.
+
+**Базы данных**
+    
+- В MongoDB можно создавать несколько баз данных. Каждая база данных содержит свои коллекции. Название базы данных должно быть уникальным в пределах одного сервера.
+- База данных может содержать разные коллекции, и каждая из них может иметь свою уникальную структуру данных.
+
+**Коллекции**
+    
+- Коллекция — это группа документов, аналогичная таблице в реляционных базах данных. В отличие от таблиц, коллекции не требуют строгой схемы, и документы в одной коллекции могут иметь различные поля и структуры.
+- Коллекции могут содержать неограниченное количество документов.
+
+**Документы**
+    
+- Документ — это основной элемент данных в MongoDB. Он представлен в формате BSON (Binary JSON), который позволяет хранить данные в виде пар "ключ-значение".
+- Каждый документ имеет уникальный идентификатор `_id`, который автоматически создается, если не указан вручную.
+
+**Структура документа: BSON (Binary JSON)**
+
+- **BSON**: Это бинарный формат, используемый для хранения документов в MongoDB. Он поддерживает более широкий набор типов данных, чем стандартный JSON, включая:
+    - **Целые числа**
+    - **Даты**
+    - **Массивы**
+    - **Объекты** (вложенные документы)
+    - **Двоичные данные**
+- **Преимущества BSON**:
+    - Более эффективное хранение и обработка данных по сравнению с текстовым JSON.
+    - Позволяет быстро сериализовать и десериализовать данные, что увеличивает производительность.
+
+**Схема данных: динамическая и гибкая**
+
+- **Динамическая схема**: MongoDB позволяет хранить данные без заранее определенной схемы. Это означает, что вы можете добавлять новые поля в документы в любой момент, не беспокоясь о том, что это повлияет на другие документы в той же коллекции.
+    
+- **Гибкость**: Гибкость схемы делает MongoDB идеальным выбором для приложений, где структура данных может изменяться со временем, например, в стартапах и проектах с изменяющимися требованиями.
+    
+##### <font color="#46aa63">Создание и удаление баз данных и коллекций</font>
+
+**Создание базы данных**
+
+Для создания базы данных в MongoDB, вы можете использовать команду `use`. База данных создается автоматически при первой записи в нее.
+
+```javascript
+use myDatabase
 ```
 
-Как видим все работает. Например мы решили изменить модель `Event` добавив в нее поле `date_create`:
+**Удаление базы данных**
 
-```python
-class Event(SQLModel, table=True):  
-    id: int | None = Field(default=None, primary_key=True)  
-    title: str  
-    description: str  
-    date_create: datetime = Field(default_factory=datetime.utcnow, nullable=False)  
-    user_id: int | None = Field(default=None, foreign_key="user.id")  
-    user: User | None = Relationship(back_populates="events")  
-  
-    model_config = {  
-        "json_schema_extra": {  
-            "example": {  
-                "title": "FastAPI Book Launch",  
-                "description": "We will be discussing the contents of the FastAPI book in this event.",  
-                "user_id": 1  
-            }  
-        }  
-    }
+Для удаления базы данных можно использовать команду `dropDatabase()`.
+
+```javascript
+db.dropDatabase()
 ```
 
-Давайте создадим миграции:
+**Создание и удаление коллекций**
 
-```shell
-alembic revision --autogenerate -m "add date_create in Event"
+Чтобы создать коллекцию, можно использовать команду `createCollection()` или просто вставить документ в новую коллекцию, и она будет создана автоматически.
+
+```javascript
+db.createCollection("myCollection")
 ```
 
-В папке `versions` появился новый файл миграции `610c0310c549_add_date_create_in_event.py`, мы видим что в функции  `upgrade()` создается новая колонка `date_create` в таблице `event`. Применим миграцию и создадим новый `Event`:
+Для удаления коллекции используется команда `drop()`.
 
-```shell
-alembic upgrade head
-
-sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) Cannot add a NOT NULL column with default value NULL
+```javascript
+db.myCollection.drop()
 ```
 
-Как видим у нас возникла ошибка. Поле `date_create` обязательное и в базе уже есть записи, необходимо указать значение которое впишется в старые записи. Для этого в миграции мы добавим значение `server_default`:
+**Вставка документов**
 
-```python
-"""add date_create in Event  
-  
-Revision ID: 610c0310c549  
-Revises: d483bb54873e  
-Create Date: 2024-09-18 14:41:39.849824  
-  
-"""  
-from datetime import datetime  
-from typing import Sequence, Union  
-  
-from alembic import op  
-import sqlalchemy as sa  
-  
-  
-# revision identifiers, used by Alembic.  
-revision: str = '610c0310c549'  
-down_revision: Union[str, None] = 'd483bb54873e'  
-branch_labels: Union[str, Sequence[str], None] = None  
-depends_on: Union[str, Sequence[str], None] = None  
-  
-  
-def upgrade() -> None:  
-    # ### commands auto generated by Alembic - please adjust! ###  
-    op.add_column('event', sa.Column('date_create', sa.DateTime(), nullable=False, server_default=str(datetime.utcnow())))  
-    # ### end Alembic commands ###  
-  
-  
-def downgrade() -> None:  
-    # ### commands auto generated by Alembic - please adjust! ###  
-    op.drop_column('event', 'date_create')  
-    # ### end Alembic commands ###
+Для вставки одного документа в коллекцию используется метод `insertOne()`.
+
+```javascript
+db.myCollection.insertOne({ name: "John", age: 30 })
 ```
 
-Снова попробуем выполнить миграцию:
+Для вставки нескольких документов можно использовать метод `insertMany()`.
 
-```shell
-alembic upgrade head 
-
-INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
-INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
-INFO  [alembic.runtime.migration] Running upgrade d483bb54873e -> 610c0310c549, add date_create in Event
+```javascript
+db.myCollection.insertMany([     { name: "Alice", age: 25 },     { name: "Bob", age: 22 } ])
 ```
 
-Все прошло успешно. Теперь в таблице `event` появился столбец `date_create`:
+**Чтение документов**
 
-![Снимок экрана 2024-09-18 в 14.58.04.png](images%2F%D0%A1%D0%BD%D0%B8%D0%BC%D0%BE%D0%BA%20%D1%8D%D0%BA%D1%80%D0%B0%D0%BD%D0%B0%202024-09-18%20%D0%B2%2014.58.04.png)
+Для чтения документов из коллекции используется метод `find()`. Он возвращает курсор, который можно перебрать.
 
-Добавим новое событие чтобы проверить что все работает:
-
-```shell
-curl -X 'POST' 'http://127.0.0.1:5000/events/' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{"title": "Event 4", "description": "Test event", "user_id": 1}'
-
-{"id":4,"user_id":1,"description":"Test event","date_create":"2024-09-18T11:56:15.030437","title":"Event 4"}
+```javascript
+db.myCollection.find()
 ```
 
-Мы успешно внедрили базу данных SQL в наше приложение с помощью SQLModel, а также реализовали CRUD операции. Давайте зафиксируем изменения, внесенные в приложение, прежде чем научиться реализовывать CRUD операции в MongoDB:
+Для получения одного документа можно использовать метод `findOne()`.
 
-```shell
-git add .
-
-git commit -m "[Feature] Incorporate a ModelSQL database and implement CRUD operations"
-
-git push -u origin planner-modelsql-sync
+```javascript
+db.myCollection.findOne({ name: "John" })
 ```
 
-Вернемся на ветку `main`:
+**Обновление документов**
 
-```shell
-git checkout main
+Для обновления одного документа используется метод `updateOne()`. Он принимает фильтр и обновление.
+
+```javascript
+db.myCollection.updateOne({ name: "John" }, {$set: { age: 31}})
+```
+
+Чтобы обновить несколько документов, используется метод `updateMany()`.
+
+```javascript
+db.myCollection.updateMany({age: {$lt: 30}}, {$set: {status: "young" } })
+```
+
+
+**Удаление документов**
+
+Для удаления одного документа используется метод `deleteOne()`.
+
+```javascript
+db.myCollection.deleteOne({ name: "John" })
+```
+
+Для удаления нескольких документов используется метод `deleteMany()`.
+
+```javascript
+db.myCollection.deleteMany({ age: { $lt: 25 } })
+```
+
+##### <font color="#46aa63">Структура запросов в MongoDB</font>
+
+MongoDB предоставляет мощный и гибкий синтаксис для выполнения запросов, включая использование фильтров, операторов и индексов для оптимизации производительности.
+
+**Использование фильтров и операторов**
+
+**Фильтры** позволяют ограничить набор данных, которые вы хотите получить или изменить. Вы можете использовать различные операторы для более точного поиска.
+
+**Операторы сравнения**
+
+MongoDB поддерживает несколько операторов сравнения, которые можно использовать в фильтрах:
+
+- **$eq**: равен
+- **$ne**: не равен
+- **$gt**: больше
+- **$gte**: больше или равно
+- **$lt**: меньше
+- **$lte**: меньше или равно
+
+**Пример**: Найти документы, где `age` больше 25.
+
+```javascript
+db.myCollection.find({ age: { $gt: 25 } })
+```
+
+**Логические операторы**
+
+MongoDB также поддерживает логические операторы для создания сложных условий:
+
+- **$and**: логическое И
+- **$or**: логическое ИЛИ
+- **$not**: логическое НЕ
+- **$nor**: логическое ИЛИ с отрицанием
+
+**Пример**: Найти документы, где `age` меньше 30 и `status` равен "young".
+
+```javascript
+db.myCollection.find({
+    $and: [
+        { age: { $lt: 30 } },
+        { status: "young" }
+    ]
+})
+```
+
+**Комбинирование операторов**
+
+Вы можете комбинировать операторы для более сложных запросов.
+
+**Пример**: Найти документы, где `age` больше 25 или `status` равен "young".
+
+```javascript
+db.myCollection.find({
+    $or: [
+        { age: { $gt: 25 } },
+        { status: "young" }
+    ]
+})
+```
+
+**Создание и использование индексов для оптимизации производительности**
+
+Индексы в MongoDB позволяют ускорить выполнение запросов, особенно в больших коллекциях.
+
+Чтобы создать индекс, используйте метод `createIndex()`. Вы можете создать индекс по одному или нескольким полям.
+
+**Пример**: Создать индекс по полю `age`.
+
+```javascript
+db.myCollection.createIndex({ age: 1 })  // 1 для сортировки по возрастанию, -1 для убывания
+```
+
+**Использование составных индексов**
+
+Если ваши запросы часто используют несколько полей, рассмотрите возможность создания составного индекса.
+
+**Пример**: Создать составной индекс по полям `age` и `status`.
+
+```javascript
+db.myCollection.createIndex({ age: 1, status: 1 })
+```
+
+**Проверка индексов**
+
+Чтобы посмотреть все индексы в коллекции, используйте метод `getIndexes()`.
+
+```javascript
+db.myCollection.getIndexes()
+```
+
+**Удаление индекса**
+
+Если индекс больше не нужен, его можно удалить с помощью метода `dropIndex()`.
+
+```javascript
+db.myCollection.dropIndex("index_name")
+```
+
+##### <font color="#46aa63">Понятие агрегации в MongoDB</font>
+
+Агрегация в MongoDB — это мощный инструмент для обработки и анализа данных, позволяющий выполнять сложные операции на наборах документов. Агрегация предоставляет возможность выполнять вычисления, группировку и трансформацию данных, что особенно полезно для анализа и отчетности.
+
+**Основные стадии агрегации**
+
+Агрегация в MongoDB обычно осуществляется с помощью метода `aggregate()`, который принимает массив стадий обработки. Вот основные стадии агрегации:
+
+**$match**
+Стадия `$match` используется для фильтрации документов на основе заданных условий. Она аналогична команде `find()`.
+
+**Пример**:
+Фильтрация документов, где `age` больше 30.
+
+```javascript
+db.myCollection.aggregate([
+    { $match: { age: { $gt: 30 } } }
+])
+```
+
+**$group**
+Стадия `$group` используется для группировки документов по одному или нескольким полям и выполнения агрегатных операций, таких как подсчет, сумма и среднее.
+
+**Пример**:
+Группировка документов по `status` и подсчет количества пользователей в каждой группе.
+
+```javascript
+db.myCollection.aggregate([
+    { $group: { _id: "$status", count: { $sum: 1 } } }
+])
+```
+
+**$sort**
+Стадия `$sort` используется для сортировки документов по заданным полям. Вы можете сортировать как по возрастанию, так и по убыванию.
+
+**Пример**:
+Сортировка по `age` в порядке возрастания.
+
+```javascript
+db.myCollection.aggregate([
+    { $sort: { age: 1 } }
+])
+```
+
+**$project**
+Стадия `$project` используется для изменения структуры документов, определяя, какие поля включать или исключать из результата. Вы также можете создавать новые поля на основе существующих.
+
+**Пример**:
+Выбор только полей `name` и `age`, а также добавление нового поля `isAdult`.
+
+```javascript
+db.myCollection.aggregate([
+    { $project: { name: 1, age: 1, isAdult: { $gt: ["$age", 18] } } }
+])
 ```
 
 ### <font color="#46aa63">ODM Beanie</font>
@@ -786,3 +816,44 @@ git push -u origin planner-beanie
 
 На этом занятии мы узнали, как добавлять базы данных SQL и NoSQL с помощью SQLModel и Beanie соответственно. Мы использовали все наши знания из предыдущих глав. Мы также проверили маршруты, чтобы убедиться, что они работают по плану.
 
+
+### Задание
+
+Предположим, у вас есть база данных `ecommerce`, содержащая следующие коллекции:
+
+1. **products**: информация о товарах.
+   - Поля: `product_id`, `name`, `category`, `price`, `stock`, `ratings`
+  
+2. **orders**: информация о заказах.
+   - Поля: `order_id`, `user_id`, `product_id`, `quantity`, `order_date`, `status`
+
+3. **users**: информация о пользователях.
+   - Поля: `user_id`, `name`, `email`, `join_date`, `loyalty_points`
+
+#### Задание 1
+
+Найдите все товары в категории "Electronics", которые стоят меньше 500.
+
+#### Задание 2
+
+Получите все заказы, сделанные пользователем с `user_id = 1`, за последние 30 дней.
+
+#### Задание 3
+
+Найдите пользователей, которые сделали более 3 заказов.
+
+#### Задание 4
+
+Подсчитайте общее количество товаров в каждой категории.
+
+#### Задание 5
+
+Найдите общую выручку (сумма всех заказов) за последний месяц.
+   
+#### Задание 6
+
+Создайте запрос, который показывает среднюю оценку товаров по категориям.
+   
+#### Задание 7
+
+Найдите пользователей, которые не сделали ни одного заказа.

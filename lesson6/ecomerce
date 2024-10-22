@@ -1,0 +1,55 @@
+// Подключение к базе данных
+use ecommerce;
+
+// Очистка существующих данных
+db.products.drop();
+db.orders.drop();
+db.users.drop();
+
+// Генерация тестовых данных для коллекции users
+const users = [
+    { user_id: 1, name: "Alice", email: "alice@example.com", join_date: new Date("2023-01-10"), loyalty_points: 150 },
+    { user_id: 2, name: "Bob", email: "bob@example.com", join_date: new Date("2023-02-15"), loyalty_points: 80 },
+    { user_id: 3, name: "Charlie", email: "charlie@example.com", join_date: new Date("2023-03-20"), loyalty_points: 200 },
+    { user_id: 4, name: "David", email: "david@example.com", join_date: new Date("2023-04-05"), loyalty_points: 0 },
+    { user_id: 5, name: "Eva", email: "eva@example.com", join_date: new Date("2023-05-30"), loyalty_points: 50 }
+];
+
+db.users.insertMany(users);
+
+// Генерация тестовых данных для коллекции products
+const products = [
+    { product_id: 1, name: "Smartphone", category: "Electronics", price: 699, stock: 100, ratings: 4.5 },
+    { product_id: 2, name: "Laptop", category: "Electronics", price: 999, stock: 50, ratings: 4.7 },
+    { product_id: 3, name: "Headphones", category: "Electronics", price: 199, stock: 200, ratings: 4.3 },
+    { product_id: 4, name: "Coffee Maker", category: "Home Appliances", price: 49, stock: 150, ratings: 4.2 },
+    { product_id: 5, name: "Blender", category: "Home Appliances", price: 89, stock: 80, ratings: 4.1 }
+];
+
+db.products.insertMany(products);
+
+// Генерация тестовых данных для коллекции orders
+const orders = [
+    { order_id: 1, user_id: 1, product_id: 1, quantity: 1, order_date: new Date("2023-06-01"), status: "Completed" },
+    { order_id: 2, user_id: 2, product_id: 2, quantity: 1, order_date: new Date("2023-06-05"), status: "Completed" },
+    { order_id: 3, user_id: 1, product_id: 3, quantity: 2, order_date: new Date("2023-06-10"), status: "Pending" },
+    { order_id: 4, user_id: 3, product_id: 4, quantity: 1, order_date: new Date("2023-06-15"), status: "Completed" },
+    { order_id: 5, user_id: 4, product_id: 5, quantity: 1, order_date: new Date("2023-06-20"), status: "Cancelled" },
+    { order_id: 6, user_id: 4, product_id: 1, quantity: 1, order_date: new Date("2023-06-20"), status: "Completed" },
+    { order_id: 7, user_id: 4, product_id: 2, quantity: 1, order_date: new Date("2023-06-20"), status: "Completed" },
+    { order_id: 8, user_id: 4, product_id: 3, quantity: 1, order_date: new Date("2023-06-20"), status: "Completed" },
+    { order_id: 9, user_id: 4, product_id: 4, quantity: 1, order_date: new Date("2023-06-20"), status: "Completed" },
+    { order_id: 10, user_id: 2, product_id: 1, quantity: 1, order_date: new Date("2023-06-20"), status: "Completed" },
+    { order_id: 11, user_id: 2, product_id: 3, quantity: 1, order_date: new Date("2023-06-20"), status: "Cancelled" },
+    { order_id: 12, user_id: 2, product_id: 4, quantity: 1, order_date: new Date("2023-06-20"), status: "Completed" },
+];
+
+db.orders.insertMany(orders);
+
+// Проверка данных
+print("Users:");
+printjson(db.users.find().toArray());
+print("Products:");
+printjson(db.products.find().toArray());
+print("Orders:");
+printjson(db.orders.find().toArray());

@@ -26,11 +26,12 @@
     3) Celery
     4) Понимание Jinja
     5) Использование шаблонов Jinja2 в FastAPI, SQL Model
-5) [Структурирование приложений FastAPI](https://github.com/ArtemE91/LecturesFastAPi/blob/main/lesson5/README.md)
+5) [Структурирование приложений FastAPI, SQLModel и Alembic](https://github.com/ArtemE91/LecturesFastAPi/blob/main/lesson5/README.md)
 	1) Структурирование маршрутов и моделей приложений
 	2) SQLModel
-6) [Alembic, ODM Beanie](https://github.com/ArtemE91/LecturesFastAPi/blob/main/lesson6/README.md)
-	1) Alembic
+    3) Alembic
+6) [MongoDB, ODM Beanie](https://github.com/ArtemE91/LecturesFastAPi/blob/main/lesson6/README.md)
+	1) MongoDB
 	2) ODM Beanie
 7) [Защита приложений FastAPI](https://github.com/ArtemE91/LecturesFastAPi/blob/main/lesson7/README.md)
 	1) Методы аутентификации в FastAPI
