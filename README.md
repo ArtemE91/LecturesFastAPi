@@ -46,3 +46,7 @@
 	5) Подготовка к развертыванию
 	6) Развертывание с помощью Docker
 	7) Развертывание образов Docker
+9) [ClickHouse, RabbitMQ и FastStream](https://github.com/ArtemE91/LecturesFastAPi/blob/main/lesson9/README.md)
+   1) ClickHouse
+   2) RabbitMQ
+   3) FastStream
